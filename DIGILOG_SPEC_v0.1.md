@@ -221,3 +221,57 @@ This document itself serves as prior art, timestamped and published publicly.
 
 *Digilog was conceived in 2026 as a free physical audio format for independent artists.*  
 *"Scan the groove."*
+
+---
+
+## Label Standard
+
+The printed label below the dot grid shows only the human identity of the music.
+No branding, no dates, no format information, no MusicBrainz IDs.
+
+```
+[artist name]     ← bold, required if known
+[song title]      ← regular weight, required if known
+```
+
+**Rules:**
+- If both are unknown → no label at all. White label aesthetic — intentional, valid.
+- If only artist is known → artist only, no empty title line
+- If only title is known → title only
+- No date, no genre, no genre, no wordmark, no URL on the label
+- MusicBrainz IDs and all other metadata live inside the `.dtw` file only — invisible, for machines
+
+The dots are the format. The label is just for humans.
+
+---
+
+## Metadata Convention
+
+All metadata is embedded inside the `.dtw` file as a UTF-8 JSON blob.
+Every field is optional. The audio plays regardless of what metadata is present.
+
+### Tiers
+
+**Tier 1 — Anonymous**
+No metadata at all. Completely valid. The white label.
+
+**Tier 2 — Self-reported**
+Artist types their name and song title into the encoder. No database needed.
+Works for any independent artist, anywhere, without registration.
+
+**Tier 3 — MusicBrainz linked**
+Full verified identity using open MusicBrainz IDs.
+For artists already in the MusicBrainz database.
+Adds verifiability and links to the open music ecosystem.
+Not required. Never required.
+
+### MusicBrainz fields (all optional)
+
+| Field | Description | Example |
+|---|---|---|
+| `mb_recording_id` | Unique ID for this recording | `a49b4286-aed8-4f3d-af97-6f89400c31a2` |
+| `mb_artist_id` | Unique ID for the artist | `7b315db2-d7e0-43f6-ad55-ce382f9f91ef` |
+| `mb_release_id` | Unique ID for the album/release | `c6a67e48-60b1-4d72-bde0-ccc45ce07ec5` |
+
+MusicBrainz is an open, free, community-maintained music database at musicbrainz.org.
+Artists do not need to be in MusicBrainz for Digilog to work.
