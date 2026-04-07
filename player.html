@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digilog Player</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f4f0; color: #111; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  .card { background: #fff; border-radius: 16px; border: 0.5px solid #e0e0dc; padding: 2rem; max-width: 420px; width: 100%; }
+  .drop-zone { border: 1.5px dashed #ccc; border-radius: 12px; padding: 2.5rem 1rem; text-align: center; cursor: pointer; transition: background 0.15s, border-color 0.15s; margin-bottom: 1.5rem; }
+  .drop-zone:hover, .drop-zone.over { background: #f0f0ee; border-color: #999; }
+  .drop-zone.loaded { border-color: #1a1a1a; border-style: solid; }
+  .drop-title { font-size: 15px; font-weight: 500; color: #111; margin-bottom: 6px; }
+  .drop-sub { font-size: 13px; color: #888; }
+  input[type=file] { display: none; }
+  .meta { margin-bottom: 1.5rem; display: none; }
+  .meta.visible { display: block; }
+  .artist { font-size: 20px; font-weight: 500; color: #111; margin-bottom: 2px; }
+  .title { font-size: 15px; color: #666; margin-bottom: 12px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #f0f0ee; color: #555; border: 0.5px solid #e0e0dc; }
+  .layers { display: flex; flex-direction: column; gap: 8px; }
+  .layer-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0.5px solid #e8e8e4; border-radius: 10px; cursor: pointer; transition: background 0.1s; }
+  .layer-row:hover { background: #f8f8f6; }
+  .layer-row.active { border-color: #111; background: #f8f8f6; }
+  .layer-row.playing { border-color: #111; background: #111; color: #fff; }
+  .layer-kbps { font-size: 13px; font-weight: 500; min-width: 55px; }
+  .layer-desc { font-size: 12px; color: #888; flex: 1; }
+  .layer-row.playing .layer-desc { color: #aaa; }
+  .play-icon { width: 28px; height: 28px; border-radius: 50%; border: 0.5px solid #ddd; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .layer-row.playing .play-icon { border-color: #444; }
+  .play-icon svg { width: 12px; height: 12px; }
+  .progress-wrap { margin-top: 1rem; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-bg { height: 3px; background: #e8e8e4; border-radius: 2px; overflow: hidden; margin-bottom: 6px; cursor: pointer; }
+  .progress-bar { height: 100%; background: #111; border-radius: 2px; width: 0%; transition: width 0.2s linear; }
+  .time-row { display: flex; justify-content: space-between; font-size: 11px; color: #aaa; }
+  .error { font-size: 13px; color: #c94040; margin-top: 8px; display: none; }
+  .mb-link { font-size: 11px; color: #aaa; margin-top: 14px; text-align: center; }
+  .mb-link a { color: #888; text-decoration: none; }
+  .mb-link a:hover { text-decoration: underline; }
+  .wordmark { text-align: center; font-size: 11px; color: #ccc; margin-top: 1.5rem; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-title">Drop a .dtw file here</div>
+    <div class="drop-sub">or click to browse</div>
+    <input type="file" id="fileInput" accept=".dtw">
+  </div>
+
+  <div class="meta" id="meta">
+    <div class="artist" id="metaArtist"></div>
+    <div class="title" id="metaTitle"></div>
+    <div class="tags" id="metaTags"></div>
+    <div class="layers" id="layers"></div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg" id="progressBg">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="time-row">
+        <span id="timeNow">0:00</span>
+        <span id="timeTotal">0:00</span>
+      </div>
+    </div>
+    <div class="mb-link" id="mbLink"></div>
+  </div>
+
+  <div class="error" id="error"></div>
+  <div class="wordmark">digilog · scan the groove</div>
+</div>
+
+<script>
+const DTW_MAGIC = [0x44,0x54,0x57,0x31]; // DTW1
+const BITRATES = [6, 12, 24];
+const LAYER_DESCS = ['core — survives any scan', 'lo-fi cassette quality', 'full quality'];
+
+let audioCtx = null;
+let currentSrc = null;
+let currentBtn = null;
+let startTime = 0;
+let duration = 0;
+let rafId = null;
+
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function stopCurrent() {
+  if (currentSrc) {
+    currentSrc.onended = null;
+    try { currentSrc.stop(); } catch(e) {}
+    currentSrc = null;
+  }
+  if (currentBtn) {
+    currentBtn.classList.remove('playing');
+    currentBtn.querySelector('.play-icon').innerHTML = playIcon();
+    currentBtn = null;
+  }
+  cancelAnimationFrame(rafId);
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('timeNow').textContent = '0:00';
+}
+
+function playIcon() {
+  return `<svg viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;
+}
+function stopIcon() {
+  return `<svg viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10"/><rect x="7" y="1" width="3" height="10"/></svg>`;
+}
+
+function tickProgress() {
+  if (!currentSrc || !audioCtx) return;
+  const elapsed = audioCtx.currentTime - startTime;
+  const pct = Math.min(100, (elapsed / duration) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('timeNow').textContent = fmtTime(elapsed);
+  rafId = requestAnimationFrame(tickProgress);
+}
+
+function playLayer(layerData, btn, dur) {
+  const ctx = getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+  const isSame = currentBtn === btn;
+  stopCurrent();
+  if (isSame) return;
+
+  ctx.decodeAudioData(layerData.slice(0), (audioBuf) => {
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(ctx.destination);
+    src.onended = () => {
+      btn.classList.remove('playing');
+      btn.querySelector('.play-icon').innerHTML = playIcon();
+      currentSrc = null;
+      currentBtn = null;
+      cancelAnimationFrame(rafId);
+      document.getElementById('progressBar').style.width = '100%';
+    };
+    src.start();
+    currentSrc = src;
+    currentBtn = btn;
+    startTime = ctx.currentTime;
+    duration = audioBuf.duration;
+    document.getElementById('timeTotal').textContent = fmtTime(audioBuf.duration);
+    document.getElementById('progressWrap').classList.add('visible');
+    btn.classList.add('playing');
+    btn.querySelector('.play-icon').innerHTML = stopIcon();
+    tickProgress();
+  }, (e) => {
+    showError('Could not decode audio layer — file may be corrupted');
+  });
+}
+
+function parseDtw(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let offset = 0;
+
+  // Magic check
+  for (let i = 0; i < 4; i++) {
+    if (bytes[offset + i] !== DTW_MAGIC[i]) throw new Error('Not a valid .dtw file');
+  }
+  offset += 4;
+
+  const version = bytes[offset++];
+  const codec   = bytes[offset++];
+  const dur     = (bytes[offset] << 8) | bytes[offset+1]; offset += 2;
+  const layerCount = bytes[offset++];
+  const metaLen = (bytes[offset] << 8) | bytes[offset+1]; offset += 2;
+
+  const metaBytes = bytes.slice(offset, offset + metaLen);
+  const meta = metaLen > 0 ? JSON.parse(new TextDecoder().decode(metaBytes)) : {};
+  offset += metaLen;
+
+  const layers = [];
+  for (let i = 0; i < layerCount; i++) {
+    const layerLen = (bytes[offset] << 24) | (bytes[offset+1] << 16) | (bytes[offset+2] << 8) | bytes[offset+3];
+    offset += 4;
+    const layerData = buffer.slice(offset, offset + layerLen);
+    offset += layerLen;
+    const crc = (bytes[offset] << 24) | (bytes[offset+1] << 16) | (bytes[offset+2] << 8) | bytes[offset+3];
+    offset += 4;
+    layers.push({ data: layerData, size: layerLen });
+  }
+
+  return { version, codec, duration: dur, layerCount, meta, layers };
+}
+
+function renderPlayer(parsed) {
+  const { meta, layers, duration: dur } = parsed;
+
+  // Artist / title
+  document.getElementById('metaArtist').textContent = meta.artist || 'Unknown artist';
+  document.getElementById('metaTitle').textContent   = meta.title  || 'Unknown title';
+
+  // Tags
+  const tags = [];
+  if (meta.year)  tags.push(meta.year);
+  if (meta.album) tags.push(meta.album);
+  if (meta.genre) tags.push(meta.genre);
+  if (meta.bpm)   tags.push(meta.bpm + ' bpm');
+  tags.push(dur + 's');
+  document.getElementById('metaTags').innerHTML = tags.map(t =>
+    `<span class="tag">${t}</span>`).join('');
+
+  // Layers
+  document.getElementById('layers').innerHTML = layers.map((layer, i) => {
+    const br = BITRATES[i] || '?';
+    const desc = LAYER_DESCS[i] || '';
+    return `<div class="layer-row" id="layerBtn${i}" onclick="handleLayer(${i})">
+      <span class="layer-kbps">${br} kbps</span>
+      <span class="layer-desc">${desc}</span>
+      <span class="play-icon">${playIcon()}</span>
+    </div>`;
+  }).join('');
+
+  // MusicBrainz link
+  const mbRec = meta.mb_recording_id;
+  if (mbRec && mbRec !== 'pending-verification' && mbRec.length > 10) {
+    document.getElementById('mbLink').innerHTML =
+      `<a href="https://musicbrainz.org/recording/${mbRec}" target="_blank">MusicBrainz ↗</a>`;
+  }
+
+  document.getElementById('meta').classList.add('visible');
+  document.getElementById('dropZone').classList.add('loaded');
+  document.querySelector('.drop-title').textContent = 'Load another .dtw';
+  document.querySelector('.drop-sub').textContent = 'drop or click to replace';
+
+  window._parsedDtw = parsed;
+}
+
+window.handleLayer = function(i) {
+  const parsed = window._parsedDtw;
+  if (!parsed) return;
+  const btn = document.getElementById('layerBtn' + i);
+  playLayer(parsed.layers[i].data, btn, parsed.duration);
+};
+
+function showError(msg) {
+  const el = document.getElementById('error');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+async function handleFile(file) {
+  if (!file.name.endsWith('.dtw')) {
+    showError('Please drop a .dtw file');
+    return;
+  }
+  stopCurrent();
+  try {
+    const buffer = await file.arrayBuffer();
+    const parsed = parseDtw(buffer);
+    renderPlayer(parsed);
+  } catch(e) {
+    showError('Could not read file: ' + e.message);
+  }
+}
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('progressBg').addEventListener('click', e => {
+  if (!currentSrc || !audioCtx) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  stopCurrent();
+});
+</script>
+</body>
+</html>
