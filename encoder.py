@@ -171,8 +171,11 @@ def bits_to_trits(bits):
         trits.append(val)
     return trits
 
+# Calibration strip height in modules
+CALIB_MODULES_H = 4
+
 def render_dot_grid(dtw_path, fmt, output_png):
-    """Render .dtw file as a printable colored dot grid PNG."""
+    """Render .dtw file as a printable colored dot grid PNG with calibration strip."""
     print(f"\n[3/4] Rendering dot grid ({fmt['label']})")
 
     try:
@@ -183,17 +186,20 @@ def render_dot_grid(dtw_path, fmt, output_png):
         from PIL import Image, ImageDraw, ImageFont
 
     # Calculate grid dimensions
-    w_px = int((fmt['w_mm'] / 25.4) * DPI)
-    h_px = int((fmt['h_mm'] / 25.4) * DPI)
-    margin = MODULE_PX * 4  # 4 module margin on each side
+    w_px  = int((fmt['w_mm'] / 25.4) * DPI)
+    h_px  = int((fmt['h_mm'] / 25.4) * DPI)
+    margin = MODULE_PX * 4
     grid_w = (w_px - margin * 2) // MODULE_PX
-    grid_h = (h_px - margin * 2) // MODULE_PX
+    calib_px = CALIB_MODULES_H * MODULE_PX        # calibration strip height in px
+    data_h_px = h_px - margin * 2 - calib_px - 4  # leave 4px gap between data and strip
+    grid_h    = data_h_px // MODULE_PX
     total_modules = grid_w * grid_h
-    total_bits = total_modules * 3  # 3 bits per module (8 colors)
+    total_bits    = total_modules * 3
 
     print(f"  Canvas: {w_px}x{h_px}px")
-    print(f"  Grid: {grid_w}x{grid_h} modules = {total_modules:,} modules")
+    print(f"  Data grid: {grid_w}x{grid_h} modules = {total_modules:,} modules")
     print(f"  Capacity: {total_bits//8:,} bytes")
+    print(f"  Calibration strip: {grid_w}x{CALIB_MODULES_H} modules")
 
     # Read .dtw file
     with open(dtw_path, 'rb') as f:
@@ -201,7 +207,6 @@ def render_dot_grid(dtw_path, fmt, output_png):
 
     # Convert to color indices
     bits = bytes_to_bits(dtw_data)
-    # Pad to fill grid
     while len(bits) < total_bits:
         bits.append(0)
     bits = bits[:total_bits]
@@ -211,17 +216,18 @@ def render_dot_grid(dtw_path, fmt, output_png):
     img = Image.new('RGB', (w_px, h_px), (255, 255, 255))
     draw = ImageDraw.Draw(img)
 
-    # Draw finder patterns (3 corners, like QR)
+    # ── Finder patterns (3 corners) ──────────────────────────────────────────
     fp_size = MODULE_PX * 7
-    for fx, fy in [(margin, margin), (w_px - margin - fp_size, margin), (margin, h_px - margin - fp_size)]:
-        # Outer black square
+    for fx, fy in [(margin, margin),
+                   (w_px - margin - fp_size, margin),
+                   (margin, h_px - margin - fp_size - calib_px - 8)]:
         draw.rectangle([fx, fy, fx + fp_size, fy + fp_size], fill=(0, 0, 0))
-        # White inner
-        draw.rectangle([fx + MODULE_PX, fy + MODULE_PX, fx + fp_size - MODULE_PX, fy + fp_size - MODULE_PX], fill=(255, 255, 255))
-        # Black center
-        draw.rectangle([fx + MODULE_PX*2, fy + MODULE_PX*2, fx + fp_size - MODULE_PX*2, fy + fp_size - MODULE_PX*2], fill=(0, 0, 0))
+        draw.rectangle([fx + MODULE_PX, fy + MODULE_PX,
+                        fx + fp_size - MODULE_PX, fy + fp_size - MODULE_PX], fill=(255, 255, 255))
+        draw.rectangle([fx + MODULE_PX*2, fy + MODULE_PX*2,
+                        fx + fp_size - MODULE_PX*2, fy + fp_size - MODULE_PX*2], fill=(0, 0, 0))
 
-    # Draw data modules
+    # ── Data modules ──────────────────────────────────────────────────────────
     idx = 0
     for row in range(grid_h):
         for col in range(grid_w):
@@ -233,13 +239,29 @@ def render_dot_grid(dtw_path, fmt, output_png):
             draw.rectangle([x, y, x + MODULE_PX - 1, y + MODULE_PX - 1], fill=color)
             idx += 1
 
-    # Draw ring boundaries (visual guides showing the 3 layers)
-    ring_colors = [(180, 80, 80), (80, 80, 180), (80, 160, 80)]
-    ring_labels = ['Core 6kbps', 'Enh1 12kbps', 'Enh2 24kbps']
-    third_h = (h_px - margin * 2) // 3
+    # ── Layer boundary lines (subtle visual guides) ───────────────────────────
+    third_h = (grid_h * MODULE_PX) // 3
     for i in range(1, 3):
         y_line = margin + third_h * i
-        draw.line([(margin, y_line), (w_px - margin, y_line)], fill=ring_colors[i], width=2)
+        draw.line([(margin, y_line), (w_px - margin, y_line)],
+                  fill=(200, 200, 200), width=1)
+
+    # ── Calibration strip ─────────────────────────────────────────────────────
+    strip_y = margin + grid_h * MODULE_PX + 4  # 4px gap below data
+    # Thin separator line
+    draw.line([(margin, strip_y - 2), (w_px - margin, strip_y - 2)],
+              fill=(180, 180, 180), width=1)
+
+    # Fill strip with all 8 colors repeating across full width
+    for col in range(grid_w):
+        color_idx = col % len(COLORS)
+        color = COLORS[color_idx]
+        x = margin + col * MODULE_PX
+        for row in range(CALIB_MODULES_H):
+            y = strip_y + row * MODULE_PX
+            draw.rectangle([x, y, x + MODULE_PX - 1, y + MODULE_PX - 1], fill=color)
+
+    print(f"  Calibration strip drawn at y={strip_y}px")
 
     img.save(output_png, dpi=(DPI, DPI))
     print(f"  Saved: {output_png}")
@@ -326,6 +348,9 @@ def main():
     parser.add_argument('--mb-recording', default='',                       help='MusicBrainz recording MBID')
     parser.add_argument('--mb-artist',    default='',                       help='MusicBrainz artist MBID')
     parser.add_argument('--mb-release',   default='',                       help='MusicBrainz release MBID')
+    parser.add_argument('--composer',     default='',                       help='Composer / songwriter name')
+    parser.add_argument('--bpm',          default='',                       help='BPM / tempo')
+    parser.add_argument('--isrc',         default='',                       help='ISRC code (international recording ID)')
     parser.add_argument('--license',      default='All rights reserved',    help='Rights/license string')
     parser.add_argument('--output',       default=None,                     help='Output filename (without extension)')
     args = parser.parse_args()
@@ -351,6 +376,9 @@ def main():
         'digilog_format':   args.format,
         'digilog_layers':   3,
         'digilog_bitrates': LAYER_BITRATES,
+        'composer':         args.composer,
+        'bpm':              args.bpm,
+        'isrc':             args.isrc,
         'digilog_spec':     'github.com/pisdronio/digilog-spec',
     }
 
