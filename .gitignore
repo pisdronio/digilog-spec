@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.mp3
+*.wav
+*.dtw
+.DS_Store
+*.tmp
