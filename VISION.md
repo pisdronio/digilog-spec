@@ -13,9 +13,41 @@ Scan it with any camera. Hear the music. No internet. No platform. No permission
 
 ---
 
+## The founding principle
+
+**Physical motion through a Digilog code is motion through time in the audio.**
+
+A Digilog code is not a static container. It is audio encoded spatially —
+time compressed into space, waiting to be unlocked by movement.
+
+When you scan a sticker, your hand moving across the surface is the needle.
+When a disc spins on a turntable, the rotation is time itself unfolding.
+When a DJ scratches, they are physically manipulating the timeline of the song.
+
+Slow down — the audio slows.
+Speed up — the audio speeds up.
+Go backwards — the audio reverses.
+Hold still — silence.
+
+This is not a feature. It is the nature of the format.
+
+Digilog codes exist in four dimensions:
+- Three spatial dimensions as printed dots on a surface
+- One temporal dimension unlocked by physical motion
+
+A sticker photograph of a song.
+A disc is a song that lives in time.
+Both are Digilog. Both follow the same principle.
+
+The format does not play audio. The format *is* audio, frozen in space,
+waiting for a hand or a motor to set it free.
+
+---
+
 ## The two forms
 
-Digilog exists in two physical forms, designed for different moments:
+Digilog exists in two physical forms. They share the same encoding language
+but inhabit different dimensions.
 
 ### Form 1 — The Flat Code (stickers, cards, posters)
 
@@ -24,7 +56,14 @@ A grid of colored dots printed on any flat surface.
 A sticker on a guitar case. A business card handed at a show.
 A poster wheatpasted on a wall. A tag on a piece of art.
 
-Scan it once. Hear the song.
+**In static mode:** scan once, hear the song. The camera is still,
+the code is still, the audio plays from start to end.
+
+**In dynamic mode:** your hand moving the phone across the surface
+IS the needle. Slow scan — slow audio. Fast scan — fast audio.
+Backwards — the song reverses. Stop — silence.
+The sticker becomes a scratch surface. No turntable needed.
+Your hand is the motor.
 
 This is music as graffiti. Music as gift. Music as artifact.
 An indie artist can print 100 stickers for a few dollars and hand their song
@@ -40,18 +79,25 @@ The physical object tells you what to expect.
 ### Form 2 — The Digilog Disc (the spinning record)
 
 A circular printed disc that spins on a turntable.
-A phone camera mounted above reads the dots as they pass.
-The music plays continuously as the disc rotates.
+A phone camera mounted above reads the dots as they rotate past.
+The music plays continuously as the disc spins.
 
-This is vinyl — but printed. Open. Reproducible.
+This is vinyl — but printed. Open. Reproducible. Scratchable.
+
+The rotation IS time. The disc does not contain a song —
+the disc IS a song, frozen in space, set free by spinning.
+
+A DJ can scratch a Digilog disc. Forward — music plays.
+Backwards — music reverses. Slow — audio slows and pitches down.
+Fast — audio speeds up. The physical manipulation of the disc
+is direct manipulation of the audio timeline.
 
 The disc has concentric data rings, like vinyl grooves:
 - Outer ring — highest quality, densest dots, best camera needed
-- Middle ring — mid quality, readable on any modern phone  
+- Middle ring — mid quality, readable on any modern phone
 - Inner ring — core layer, always readable, survives everything
 
-The needle drops on the outer ring for best quality.
-A worn disc, a cheap camera, a scratched print — falls back to the inner ring.
+A worn disc, a scratched print, a cheap camera — falls back inward.
 You hear what the physical object can give you. Exactly like vinyl.
 
 A 3D-printed phone rig mounts above the turntable at a fixed angle and distance.
