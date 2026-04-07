@@ -276,9 +276,12 @@ def print_metadata(parsed):
     if artist or title:
         print(f"  {artist} — {title}" if artist and title else f"  {artist or title}")
 
-    if meta.get('album'):  print(f"  Album:    {meta['album']}")
-    if meta.get('year'):   print(f"  Year:     {meta['year']}")
-    if meta.get('genre'):  print(f"  Genre:    {meta['genre']}")
+    if meta.get('album'):    print(f"  Album:    {meta['album']}")
+    if meta.get('year'):     print(f"  Year:     {meta['year']}")
+    if meta.get('genre'):    print(f"  Genre:    {meta['genre']}")
+    if meta.get('composer'): print(f"  Composer: {meta['composer']}")
+    if meta.get('bpm'):      print(f"  BPM:      {meta['bpm']}")
+    if meta.get('isrc'):     print(f"  ISRC:     {meta['isrc']}")
 
     print(f"\n  Duration: {parsed['duration']}s")
     print(f"  Layers:   {parsed['layer_count']}")
