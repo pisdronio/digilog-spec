@@ -11,6 +11,38 @@
 
 Digilog is a free, open, physical audio format.
 
+### The founding principle
+
+**Physical motion through a Digilog code is motion through time in the audio.**
+
+A Digilog code encodes audio spatially — time compressed into space.
+The decoder does not simply play a file. It maps physical movement to audio playback:
+
+| Physical motion | Audio result |
+|---|---|
+| Scan forward | Plays forward |
+| Scan backward | Plays in reverse |
+| Scan fast | Audio speeds up |
+| Scan slow | Audio slows down |
+| Hold still | Silence |
+| Spin on turntable | Continuous playback |
+| DJ scratch | Real-time audio scrubbing |
+
+This applies to both flat codes and spinning discs.
+On a flat code your hand is the motor.
+On a disc the turntable is the motor.
+Both follow the same principle.
+
+### Two reading modes
+
+**Static mode** — scan once, play from start to end.
+Camera and code are both stationary. Full audio plays automatically.
+Best for: casual listening, sharing, discovery.
+
+**Dynamic mode** — continuous real-time reading.
+Physical motion maps directly to audio timeline position.
+Best for: Digilog Disc, interactive stickers, DJ performance.
+
 It encodes compressed audio into a printable visual pattern — a grid of colored dots — that can be scanned by any camera and played back without internet, servers, or proprietary software.
 
 It is designed to be:
