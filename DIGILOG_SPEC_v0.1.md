@@ -269,9 +269,196 @@ Not required. Never required.
 
 | Field | Description | Example |
 |---|---|---|
-| `mb_recording_id` | Unique ID for this recording | `a49b4286-aed8-4f3d-af97-6f89400c31a2` |
-| `mb_artist_id` | Unique ID for the artist | `7b315db2-d7e0-43f6-ad55-ce382f9f91ef` |
-| `mb_release_id` | Unique ID for the album/release | `c6a67e48-60b1-4d72-bde0-ccc45ce07ec5` |
+| `title`           | Track title | `Guerrero` |
+| `artist`          | Artist name | `Sidronio` |
+| `album`           | Album name | `A E I O U` |
+| `year`            | Release year | `2009` |
+| `genre`           | Genre | `Rock` |
+| `track`           | Track number | `1` |
+| `composer`        | Composer / songwriter | `Diego Aguilar Martínez-López` |
+| `bpm`             | Tempo in BPM | `120` |
+| `isrc`            | ISRC recording ID | `USRC12345678` |
+| `license`         | Rights statement | `All rights reserved` |
+| `mb_recording_id` | MusicBrainz recording ID | `a49b4286-aed8-4f3d-af97-6f89400c31a2` |
+| `mb_artist_id`    | MusicBrainz artist ID | `7b315db2-d7e0-43f6-ad55-ce382f9f91ef` |
+| `mb_release_id`   | MusicBrainz release ID | `c6a67e48-60b1-4d72-bde0-ccc45ce07ec5` |
 
 MusicBrainz is an open, free, community-maintained music database at musicbrainz.org.
 Artists do not need to be in MusicBrainz for Digilog to work.
+
+---
+
+## Calibration Strip
+
+Every Digilog code includes a calibration strip — a row of known reference colors printed at a fixed position. The scanner uses this strip to measure and correct for color drift introduced by printers and cameras.
+
+### Purpose
+
+Different printers reproduce colors differently. Different cameras read colors differently. Without calibration, color decoding is unreliable across devices.
+
+The calibration strip makes every Digilog code self-calibrating — the scanner measures the actual drift for that specific print/camera combination and corrects accordingly. Analogous to white balance in photography.
+
+### Position
+
+```
+┌─────────────────────────────┐
+│                             │
+│       dot grid (data)       │
+│                             │
+├─────────────────────────────┤  ← calibration strip (4 modules tall)
+│ ░ █ ▒ ▓ ▒ ░ █ ░ █ ▒ ▓ ▒  │  ← 8 colors repeating full width
+└─────────────────────────────┘
+│     label (artist / title)  │
+```
+
+- Location: immediately below the last data row
+- Height: 4 modules
+- Width: full grid width
+- Content: all 8 reference colors repeating left to right
+
+### Reference Colors
+
+These are the canonical RGB values defined by the Digilog spec. Any deviation from these values in a scan indicates drift that must be corrected.
+
+| Index | Name    | R   | G   | B   |
+|-------|---------|-----|-----|-----|
+| 0     | Black   | 0   | 0   | 0   |
+| 1     | White   | 255 | 255 | 255 |
+| 2     | Red     | 220 | 50  | 50  |
+| 3     | Green   | 50  | 180 | 50  |
+| 4     | Blue    | 50  | 50  | 220 |
+| 5     | Yellow  | 220 | 180 | 50  |
+| 6     | Purple  | 180 | 50  | 220 |
+| 7     | Cyan    | 50  | 200 | 200 |
+
+### Calibration Algorithm
+
+1. Locate the calibration strip (fixed position, below last data row)
+2. For each of the 8 colors, average all module samples of that color in the strip
+3. Calculate drift per color: `drift[i] = scanned_rgb[i] - reference_rgb[i]`
+4. For each data module, find nearest reference color using uncorrected distance
+5. Apply correction: `corrected_rgb = scanned_rgb - drift[nearest_color]`
+6. Re-classify the corrected module to its final color index
+
+### Decoder behavior
+
+- If calibration strip is present and readable: use full calibration
+- If calibration strip is partially readable: use partial calibration for available colors
+- If calibration strip is unreadable: fall back to tolerance-based nearest-color matching
+
+The strip degrades gracefully — partial calibration is better than none.
+
+---
+
+## Encoding Modes
+
+The `.dtw` header contains an encoding mode field that defines how dots are rendered and read. This allows the format to evolve without breaking backward compatibility.
+
+| Mode | Value | Name | Status |
+|---|---|---|---|
+| Discrete | `0x01` | Hard-edged colored squares | Current — v0.1 |
+| Gradient | `0x02` | Soft dots with gradient transitions | Future — v2.0 |
+
+---
+
+### Mode 0x01 — Discrete encoding (current)
+
+Hard-edged square modules. 8 colors. 3 bits per module.
+The scanner reads the center pixel of each module and classifies it to the nearest reference color.
+
+Robust, forgiving, works on any camera and printer.
+Best for flat surfaces scanned once — stickers, cards, posters, walls.
+
+---
+
+### Mode 0x02 — Gradient encoding (future)
+
+Soft dots with controlled gradient transitions between neighboring modules.
+The transition zone between two adjacent dots encodes additional data beyond the dots themselves.
+
+**Core principle:** the blend between two dots is not noise — it is signal.
+The transition carries information about the relationship between neighbors,
+increasing effective capacity without increasing physical dot density.
+
+**Capacity gain:** estimated 25–100% more data in the same physical space,
+depending on transition resolution and calibration accuracy.
+
+**Designed for motion:** the natural blur of a spinning Digilog Disc
+enhances gradient reading rather than degrading it.
+Motion is signal, not noise.
+
+**Aesthetic:** soft, organic, CRT-like. Dots bleed into each other
+like phosphor on a screen or ink on textured paper.
+Closer to analog than Mode 1.
+
+**Requirements:**
+- Enhanced calibration strip (gradient reference patches in addition to flat color patches)
+- Higher precision camera (most modern phones qualify)
+- Controlled print quality (professional or high-quality inkjet recommended)
+
+**Backward compatibility:**
+A Mode 0x01 scanner encountering a Mode 0x02 code will read the dot centers
+and ignore transition zones — degraded but functional.
+A Mode 0x02 scanner reads both modes natively.
+
+---
+
+## The Digilog Disc
+
+A circular printed disc designed to spin on a standard turntable (33 or 45 RPM).
+A phone camera mounted on a 3D-printed rig reads the dots as they rotate past.
+Music plays continuously as the disc spins.
+
+### Disc geometry
+
+```
+         outer ring  — layer 2 (24 kbps, densest dots)
+       middle ring   — layer 1 (12 kbps)
+     inner ring      — layer 0 (6 kbps, core, always readable)
+   timing track      — clock marks for rotation speed detection
+ center hole         — standard turntable spindle
+```
+
+### How it works
+
+1. Disc spins on turntable at constant speed
+2. Phone camera reads a radial slice of the disc as it rotates
+3. Timing track on the outer edge measures exact rotation speed
+4. Each full rotation = one complete pass of all data rings
+5. Audio reconstructs and plays continuously in real time
+6. Quality degrades gracefully inward — outer rings = best, inner = always readable
+
+### The vinyl analogy — made literal
+
+| Vinyl | Digilog Disc |
+|---|---|
+| Groove depth = audio data | Dot color = audio data |
+| Needle reads groove | Camera reads dots |
+| Record wear = degraded sound | Print wear = lower layer fallback |
+| Turntable speed = playback rate | Rotation speed = data read rate |
+| 12" LP = full album | Large disc = longer audio |
+| 7" single = short track | Small disc = short track |
+
+### 3D printed rig
+
+An open-source phone mount designed to hold any phone at the correct
+angle and distance above the spinning disc.
+Design files will be published at github.com/pisdronio/digilog-spec.
+
+**Rig specifications:**
+- Fixed focal distance: optimized per disc diameter
+- Camera angle: perpendicular to disc surface ±5°
+- Compatible with: standard 12" and 7" turntable sizes
+- Material: any FDM-printable filament (PLA recommended)
+- Phone compatibility: universal clamp, fits any phone
+
+### Disc formats
+
+| Disc size | Equivalent | Approx audio capacity |
+|---|---|---|
+| 7" (18cm) | 7" single | ~30–60 seconds |
+| 10" (25cm) | 10" EP | ~2–3 minutes |
+| 12" (30cm) | 12" LP | ~5–8 minutes |
+
+*Capacity depends on encoding mode, dot density, and number of rings.*
+*Mode 0x02 gradient encoding significantly increases capacity per ring.*
